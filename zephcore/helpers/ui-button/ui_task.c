@@ -241,15 +241,14 @@ static void schedule_render(void)
 #ifdef CONFIG_ZEPHCORE_UI_DISPLAY
 /* Step size (percentage points) for each of the LEDs page's three
  * brightness rows — see render_leds()/render_leds_mono()/render_leds_color()
- * in ui_pages.c for the on-screen "Brightness +-N%" labels. Row 0 is the
+ * in ui_pages.c for the on-screen "Bright +/-N%" labels. Row 0 is the
  * plain on/off toggle and has no step. */
 static inline uint8_t leds_menu_step(uint8_t row)
 {
 	switch (row) {
 	case 1: return 20;
 	case 2: return 5;
-	case 3: return 1;
-	default: return 0;
+	default: return 1;
 	}
 }
 #endif

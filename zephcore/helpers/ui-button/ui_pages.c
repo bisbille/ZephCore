@@ -1326,7 +1326,12 @@ static void render_leds_mono(void)
 		int y = CONTENT_Y;
 
 		snprintf(buf, sizeof(buf), "LEDs: %s",
-			 state.leds_disabled ? "off" : "on");
+			 state.leds_disabled ? "OFF" : "ON");
+		mc_display_text(0, y, buf, false);
+		y += LINE_H;
+
+		snprintf(buf, sizeof(buf), "Brightness: %u%%",
+			 zephcore_led_brightness_pct());
 		mc_display_text(0, y, buf, false);
 		y += LINE_H;
 
@@ -1342,10 +1347,10 @@ static void render_leds_mono(void)
 			const char *cur = (state.leds_menu_row == row) ? "> " : "  ";
 
 			if (row == 0) {
-				snprintf(buf, sizeof(buf), "%sLED: %s", cur,
+				snprintf(buf, sizeof(buf), "%sLEDs: %s", cur,
 					 state.leds_disabled ? "OFF" : "ON");
 			} else {
-				snprintf(buf, sizeof(buf), "%s+/-%u%%  %u%%", cur,
+				snprintf(buf, sizeof(buf), "%sBright +/-%02u%% %u%%", cur,
 					 leds_menu_row_step(row), brightness);
 			}
 			mc_display_text(0, y, buf, false);
@@ -1357,14 +1362,12 @@ static void render_leds_mono(void)
 	uint8_t step = leds_menu_row_step(state.leds_menu_row);
 	uint8_t brightness = zephcore_led_brightness_pct();
 
-	snprintf(buf, sizeof(buf), "Brightness +/-%u%%", step);
+	snprintf(buf, sizeof(buf), "Bright +/-%02u%% %u%%", step, brightness);
 	draw_centered(centered_row(0, 4), buf);
 
-	snprintf(buf, sizeof(buf), "%u%%", brightness);
-	draw_centered(centered_row(1, 4), buf);
-
-	draw_centered(centered_row(2, 4), "tap+  2tap-");
-	draw_centered(centered_row(3, 4), "hold = done");
+	draw_centered(centered_row(1, 4), "1xTAP: +");
+	draw_centered(centered_row(2, 4), "2xTAP: -");
+	draw_centered(centered_row(3, 4), "hold: OK");
 }
 
 #if MC_DISPLAY_COLOR_PANEL
@@ -1375,14 +1378,18 @@ static void render_leds_color(void)
 	if (state.leds_menu_level == 0) {
 		int y = CONTENT_Y;
 
-		draw_badge(0, y, "LED", state.leds_disabled ? UI_COLOR_DISABLED
+		draw_badge(0, y, "LEDs", state.leds_disabled ? UI_COLOR_ERROR
 							      : UI_COLOR_OK);
 		mc_display_color_text(32, y,
-				      state.leds_disabled ? "off" : "on",
-				      state.leds_disabled ? UI_COLOR_DISABLED
+				      state.leds_disabled ? "OFF" : "ON",
+				      state.leds_disabled ? UI_COLOR_ERROR
 							  : UI_COLOR_OK);
 		y += LINE_H + 4;
-		draw_centered_color(y, "Long press: menu", UI_COLOR_VALUE);
+		snprintf(buf, sizeof(buf), "Brightness: %u%%",
+			 zephcore_led_brightness_pct());
+		draw_centered_color(y, buf, UI_COLOR_VALUE);
+		y += LINE_H;
+		draw_centered_color(y, "Long press: menu", UI_COLOR_LABEL);
 		return;
 	}
 
@@ -1392,17 +1399,24 @@ static void render_leds_color(void)
 		for (uint8_t row = 0; row < 4; row++) {
 			int y = centered_row(row, 4);
 			bool sel = (state.leds_menu_row == row);
-			uint16_t color = sel ? UI_COLOR_OK : UI_COLOR_LABEL;
 			const char *cur = sel ? "> " : "  ";
 
 			if (row == 0) {
-				snprintf(buf, sizeof(buf), "%sLED: %s", cur,
+				/* On/off status color (cyan/green vs red) wins
+				 * over the plain selection highlight here — it's
+				 * a status indicator first, a menu row second. */
+				snprintf(buf, sizeof(buf), "%sLEDs: %s", cur,
 					 state.leds_disabled ? "OFF" : "ON");
+				mc_display_color_text(0, y, buf,
+						      state.leds_disabled ? UI_COLOR_ERROR
+									  : UI_COLOR_OK);
 			} else {
-				snprintf(buf, sizeof(buf), "%s+/-%u%%  %u%%", cur,
+				uint16_t color = sel ? UI_COLOR_OK : UI_COLOR_LABEL;
+
+				snprintf(buf, sizeof(buf), "%sBright +/-%02u%% %u%%", cur,
 					 leds_menu_row_step(row), brightness);
+				mc_display_color_text(0, y, buf, color);
 			}
-			mc_display_color_text(0, y, buf, color);
 		}
 		return;
 	}
@@ -1411,14 +1425,12 @@ static void render_leds_color(void)
 	uint8_t step = leds_menu_row_step(state.leds_menu_row);
 	uint8_t brightness = zephcore_led_brightness_pct();
 
-	snprintf(buf, sizeof(buf), "Brightness +/-%u%%", step);
-	draw_centered_color(centered_row(0, 4), buf, UI_COLOR_LABEL);
+	snprintf(buf, sizeof(buf), "Bright +/-%02u%% %u%%", step, brightness);
+	draw_centered_color(centered_row(0, 4), buf, UI_COLOR_VALUE);
 
-	snprintf(buf, sizeof(buf), "%u%%", brightness);
-	draw_centered_color(centered_row(1, 4), buf, UI_COLOR_VALUE);
-
-	draw_centered_color(centered_row(2, 4), "tap+  2tap-", UI_COLOR_LABEL);
-	draw_centered_color(centered_row(3, 4), "hold = done", UI_COLOR_LABEL);
+	draw_centered_color(centered_row(1, 4), "1xTAP: +", UI_COLOR_LABEL);
+	draw_centered_color(centered_row(2, 4), "2xTAP: -", UI_COLOR_LABEL);
+	draw_centered_color(centered_row(3, 4), "hold: OK", UI_COLOR_LABEL);
 }
 #endif /* MC_DISPLAY_COLOR_PANEL */
 
