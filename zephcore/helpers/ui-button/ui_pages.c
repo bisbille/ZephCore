@@ -1378,11 +1378,11 @@ static void render_leds_color(void)
 	if (state.leds_menu_level == 0) {
 		int y = CONTENT_Y;
 
-		draw_badge(0, y, "LEDs", state.leds_disabled ? UI_COLOR_ERROR
+		draw_badge(0, y, "LEDs", state.leds_disabled ? UI_COLOR_DISABLED
 							      : UI_COLOR_OK);
 		mc_display_color_text(32, y,
 				      state.leds_disabled ? "OFF" : "ON",
-				      state.leds_disabled ? UI_COLOR_ERROR
+				      state.leds_disabled ? UI_COLOR_DISABLED
 							  : UI_COLOR_OK);
 		y += LINE_H + 4;
 		snprintf(buf, sizeof(buf), "Brightness: %u%%",
@@ -1402,13 +1402,17 @@ static void render_leds_color(void)
 			const char *cur = sel ? "> " : "  ";
 
 			if (row == 0) {
-				/* On/off status color (cyan/green vs red) wins
-				 * over the plain selection highlight here — it's
-				 * a status indicator first, a menu row second. */
+				/* On/off status color wins over the plain
+				 * selection highlight here — it's a status
+				 * indicator first, a menu row second. Uses
+				 * UI_COLOR_DISABLED for "off", same as every
+				 * other on/off page in this UI (BLE, GPS,
+				 * offgrid...) — red (UI_COLOR_ERROR) stays
+				 * reserved for actual critical thresholds. */
 				snprintf(buf, sizeof(buf), "%sLEDs: %s", cur,
 					 state.leds_disabled ? "OFF" : "ON");
 				mc_display_color_text(0, y, buf,
-						      state.leds_disabled ? UI_COLOR_ERROR
+						      state.leds_disabled ? UI_COLOR_DISABLED
 									  : UI_COLOR_OK);
 			} else {
 				uint16_t color = sel ? UI_COLOR_OK : UI_COLOR_LABEL;
