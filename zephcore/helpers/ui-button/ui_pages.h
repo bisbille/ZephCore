@@ -97,6 +97,14 @@ struct ui_state {
 
 	/* LEDs page */
 	bool     leds_disabled;    /* true = LEDs off */
+	/* On-screen LEDs submenu (long press to enter, see action_page_enter()
+	 * and action_page_next/prev() in ui_task.c):
+	 *   0 = not in the submenu (plain "LEDs: on/off" page)
+	 *   1 = row select — leds_menu_row picks 0=on/off, 1/2/3=brightness step
+	 *   2 = value edit — leds_menu_row's row is being adjusted
+	 * Always reset to 0 when leaving the submenu; never persisted. */
+	uint8_t  leds_menu_level;
+	uint8_t  leds_menu_row;
 
 	/* Sensors page */
 	int16_t  temperature_c10;  /* centi-degrees C */

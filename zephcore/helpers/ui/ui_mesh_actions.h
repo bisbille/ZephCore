@@ -58,6 +58,9 @@ void mesh_ble_set_enabled(bool enable);
 void mesh_set_buzzer_mode(uint8_t mode);
 void mesh_set_offgrid_mode(bool enable);
 void mesh_set_leds_disabled(bool disabled);
+/* LED PWM brightness (0-100). Caller must apply the live effect itself via
+ * zephcore_led_set_brightness_pct() before calling this — it only persists. */
+void mesh_set_led_brightness_pct(uint8_t pct);
 void mesh_disable_power_regulators(void);
 void mesh_reboot_to_ota_dfu(void);
 void mesh_save_brightness(uint8_t brightness);

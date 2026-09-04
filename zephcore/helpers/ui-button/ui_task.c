@@ -35,6 +35,7 @@
 #include "ui_task.h"
 #include "ui_pages.h"
 #include <helpers/buzzer_gate.h>
+#include <helpers/led_gate.h>
 #include <time_sync.h>
 
 #ifdef CONFIG_ZEPHCORE_UI_BUZZER
@@ -237,9 +238,44 @@ static void schedule_render(void)
 /* ========== Button Action Functions ========== */
 /* Each action checks capabilities internally — no #ifdef in the switch. */
 
+#ifdef CONFIG_ZEPHCORE_UI_DISPLAY
+/* Step size (percentage points) for each of the LEDs page's three
+ * brightness rows — see render_leds()/render_leds_mono()/render_leds_color()
+ * in ui_pages.c for the on-screen "Brightness +-N%" labels. Row 0 is the
+ * plain on/off toggle and has no step. */
+static inline uint8_t leds_menu_step(uint8_t row)
+{
+	switch (row) {
+	case 1: return 20;
+	case 2: return 5;
+	case 3: return 1;
+	default: return 0;
+	}
+}
+#endif
+
 static void action_page_next(void)
 {
 #ifdef CONFIG_ZEPHCORE_UI_DISPLAY
+	struct ui_state *s = get_state();
+
+	if (s->leds_menu_level == 1) {
+		/* Row select (level 1): single tap cycles to the next row */
+		s->leds_menu_row = (uint8_t)((s->leds_menu_row + 1) % 4);
+		schedule_render();
+		return;
+	}
+	if (s->leds_menu_level == 2) {
+		/* Value edit (level 2): single tap = +step, clamped at 100 */
+		uint8_t step = leds_menu_step(s->leds_menu_row);
+		uint8_t cur = zephcore_led_brightness_pct();
+		uint8_t next = (uint8_t)((cur + step > 100) ? 100 : cur + step);
+
+		zephcore_led_set_brightness_pct(next);
+		mesh_set_led_brightness_pct(next);
+		schedule_render();
+		return;
+	}
 	ui_pages_next();
 #endif
 	schedule_render();
@@ -248,6 +284,27 @@ static void action_page_next(void)
 static void action_page_prev(void)
 {
 #ifdef CONFIG_ZEPHCORE_UI_DISPLAY
+	struct ui_state *s = get_state();
+
+	if (s->leds_menu_level == 1) {
+		/* Row select (level 1): "2 taps" backs out of the menu one
+		 * level at a time, same as everywhere else in this UI. */
+		s->leds_menu_level = 0;
+		schedule_render();
+		return;
+	}
+	if (s->leds_menu_level == 2) {
+		/* Value edit (level 2): "2 taps" = -step, clamped at 0 —
+		 * the mirror of the single-tap +step above. */
+		uint8_t step = leds_menu_step(s->leds_menu_row);
+		uint8_t cur = zephcore_led_brightness_pct();
+		uint8_t next = (uint8_t)((cur < step) ? 0 : cur - step);
+
+		zephcore_led_set_brightness_pct(next);
+		mesh_set_led_brightness_pct(next);
+		schedule_render();
+		return;
+	}
 	ui_pages_prev();
 #endif
 	schedule_render();
@@ -300,10 +357,38 @@ static void action_page_enter(void)
 		action_buzzer_toggle();
 		break;
 
-	case UI_PAGE_LEDS:
-		/* Toggle LED on/off */
-		action_leds_toggle();
+	case UI_PAGE_LEDS: {
+		/* 3-level menu: level 0 (not shown here, see the leds_menu_level
+		 * checks in action_page_next/prev above) is the plain "LEDs page,
+		 * long press" state. Long press:
+		 *   level 0 → 1: enter the menu (row select), cursor on row 0
+		 *   level 1 → row 0 selected: toggle on/off, stay in row select
+		 *   level 1 → row 1/2/3 selected: enter value edit for that row
+		 *   level 2 → confirm, back to row select (one level, not exit) */
+		struct ui_state *s_led = get_state();
+
+		switch (s_led->leds_menu_level) {
+		case 0:
+			s_led->leds_menu_level = 1;
+			s_led->leds_menu_row = 0;
+			schedule_render();
+			break;
+		case 1:
+			if (s_led->leds_menu_row == 0) {
+				action_leds_toggle();
+			} else {
+				s_led->leds_menu_level = 2;
+				schedule_render();
+			}
+			break;
+		case 2:
+		default:
+			s_led->leds_menu_level = 1;
+			schedule_render();
+			break;
+		}
 		break;
+	}
 
 	case UI_PAGE_OFFGRID: {
 		/* Double-press confirmation (CONFIRM_WINDOW_MS window) */

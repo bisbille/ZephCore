@@ -48,6 +48,7 @@ LOG_MODULE_REGISTER(zephcore_ui_actions, CONFIG_ZEPHCORE_UI_ACTIONS_LOG_LEVEL);
 #define UI_ACTION_GPS_DUTY_SAVE     BIT(12)
 #define UI_ACTION_DISPLAY_ROTATE_SAVE BIT(13)
 #define UI_ACTION_INPUT_ROTATE_SAVE BIT(14)
+#define UI_ACTION_LED_BRIGHTNESS_SAVE BIT(15)
 
 /* Module-local pointers, set by init */
 static CompanionMesh *s_mesh;
@@ -70,6 +71,7 @@ static atomic_t pending_offgrid_enabled;
 static atomic_t pending_leds_disabled;
 static atomic_t pending_ble_disabled;
 static atomic_t pending_brightness;
+static atomic_t pending_led_brightness;
 static atomic_t pending_wake_on_msg;
 static atomic_t pending_screen_off_secs;
 static atomic_t pending_path_hash_mode;
@@ -208,6 +210,18 @@ extern "C" void mesh_set_leds_disabled(bool disabled)
 	k_event_post(s_mesh_events, s_mesh_event_ui_action);
 }
 
+/* LED PWM brightness (0-100), distinct from prefs.display_brightness (screen
+ * backlight, see mesh_save_brightness). Caller applies the live effect via
+ * zephcore_led_set_brightness_pct() directly (lock-free atomic, same as the
+ * CLI path in CommonCLI::handleCommand) before calling this — this only
+ * defers the flash write to the mesh thread. */
+extern "C" void mesh_set_led_brightness_pct(uint8_t pct)
+{
+	atomic_set(&pending_led_brightness, (atomic_val_t)pct);
+	atomic_or(&pending_ui_actions, UI_ACTION_LED_BRIGHTNESS_SAVE);
+	k_event_post(s_mesh_events, s_mesh_event_ui_action);
+}
+
 /* Disable power regulators for System OFF.
  * Only touches sensor power and buzzer power-gate regulators.
  * GPS is handled separately by gps_power_off_for_shutdown().
@@ -285,6 +299,13 @@ extern "C" void mesh_handle_ui_actions(void)
 		bool ld = atomic_get(&pending_leds_disabled) != 0;
 		s_mesh->prefs.leds_disabled = ld ? 1 : 0;
 		LOG_INF("leds_disabled=%d (button)", ld);
+		need_save = true;
+	}
+
+	if (actions & UI_ACTION_LED_BRIGHTNESS_SAVE) {
+		uint8_t br = (uint8_t)atomic_get(&pending_led_brightness);
+		s_mesh->prefs.led_brightness = br;
+		LOG_INF("led_brightness=%u%% (button)", br);
 		need_save = true;
 	}
 
